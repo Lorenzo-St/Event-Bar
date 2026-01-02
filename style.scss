@@ -1,0 +1,32 @@
+// https://gitlab.gnome.org/GNOME/gtk/-/blob/gtk-3-24/gtk/theme/Adwaita/_colors-public.scss
+@use 'sass:list';
+@use 'theme/theme.scss';
+$fg-color: theme.$foreground;
+$bg-color: theme.$background;
+
+window.Bar {
+
+  font-weight: bold;
+  font-family:"DepartureMono Nerd Font Mono";
+  opacity: 100%;
+  > centerbox {
+    border-radius: 10px;
+    margin: 8px;
+  }
+  CalendarButton {
+    background-color: $bg-color;
+    padding-right: 20px;
+  }
+  text{
+    color: list.nth(theme.$palette, 7);
+
+  }
+  node-background {
+    background-color: $bg-color;
+    padding-left: 20px;
+  }
+  pop-up {
+    color: $bg-color;
+  }
+
+}
