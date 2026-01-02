@@ -1,5 +1,5 @@
 {
-  description = "My Awesome Desktop Shell";
+  description = "Tool Bar for my nixos install 'Event Horizon' ";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -17,7 +17,7 @@
   }: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
-    pname = "my-shell";
+    pname = "EventBar";
     entry = "app.ts";
 
     astalPackages = with ags.packages.${system}; [
