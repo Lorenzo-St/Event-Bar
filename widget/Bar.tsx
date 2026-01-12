@@ -2,28 +2,24 @@ import app from "ags/gtk4/app"
 
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createPoll } from "ags/time"
-
+import { onCleanup } from "gnim"
 import AstalBattery from "gi://AstalBattery"
 import AstalNetwork from "gi://AstalNetwork"
 import AstalWp from "gi://AstalWp"
 
 import { createBinding } from "ags"
 
-const batteryDevice = AstalBattery.get_default();
-
-const batteryPercent = createBinding(batteryDevice, "percentage")
-const batteryIcon = createBinding(batteryDevice, "battery-icon-name")
-
-const network = AstalNetwork.get_default();
-const primary = createBinding(network, "primary")
-
-const audio = AstalWp.get_default();
-const audioSpeaker = createBinding(audio, "default-speaker");
-
-const wifi = network.get_wifi();
-const accessPoints = createBinding(wifi, "access-points");
-
 function BatteryIndicator() {
+
+	const batteryDevice = AstalBattery.get_default();
+
+	const batteryPercent = createBinding(batteryDevice, "percentage")
+	const batteryIcon = createBinding(batteryDevice, "battery-icon-name")
+	onCleanup(() => {
+		batteryPercent.unsubscribe();
+		batteryIcon.unsubscribe();
+	});
+
 	let content;
 	content = <label cssName="text" label={batteryPercent(
 		(p) => {
@@ -46,6 +42,10 @@ function BatteryIndicator() {
 
 function TimeDateCalendar() {
 	const time = createPoll("", 1000, "date")
+	onCleanup(() => {
+		time.unsubscribe();
+	});
+
 
 	return <box $type="center" halign={Gtk.Align.CENTER}>
 		<menubutton class="CalendarButton" halign={Gtk.Align.CENTER}>
@@ -60,6 +60,15 @@ function TimeDateCalendar() {
 }
 
 function NetworkDropdown() {
+	const network = AstalNetwork.get_default();
+	const wifi = network.get_wifi();
+	const accessPoints = createBinding(wifi, "access-points");
+	onCleanup(() => {
+		accessPoints.unsubscribe();
+	});
+
+
+
 	wifi.scan();
 	const access_points = accessPoints((p) => p);
 	const buttons = [];
@@ -88,6 +97,17 @@ function NetworkDropdown() {
 
 
 function NetAudioBluetooth() {
+	const network = AstalNetwork.get_default();
+	const primary = createBinding(network, "primary")
+
+	const audio = AstalWp.get_default();
+	const audioSpeaker = createBinding(audio, "default-speaker");
+	onCleanup(() => {
+		primary.unsubscribe();
+		audioSpeaker.unsubscribe();
+	});
+
+
 	const networkAlign = Gtk.Align.LEFT;
 	const audioAlign = Gtk.Align.CENTER;
 	let connectionIcon = primary(
