@@ -2,29 +2,40 @@ import app from "ags/gtk4/app"
 import style from "./style.scss"
 import Bar from "./widget/Bar"
 
-let bars = new Map<number, any>()
+let bars = new Map<Gdk.Monitor, any>()
 
-function recreateBars() {
-  // Destroy tracked bars
-  for (const bar of bars.values()) {
-    bar.destroy()
-  }
-  bars.clear()
+function addBar(monitor: Gdk.Monitor) {
+  if (bars.has(monitor)) return
 
-  // Recreate bars inside AGS tracking context
-  for (const monitor of app.get_monitors()) {
-    const bar = Bar(monitor)
-    bars.set(monitor.id, bar)
-  }
+  const bar = Bar(monitor)
+  bars.set(monitor, bar)
+}
+
+function removeBar(monitor: Gdk.Monitor) {
+  const bar = bars.get(monitor)
+  if (!bar) return
+
+  bar.destroy()
+  bars.delete(monitor)
 }
 
 app.start({
   css: style,
 
   main() {
-    recreateBars()
+    // Create bars for existing monitors
+    for (const monitor of app.get_monitors()) {
+      addBar(monitor)
+    }
 
-    // app.connect("monitor-added", recreateBars)
-    // app.connect("monitor-removed", recreateBars)
+    // Add new monitor
+    app.connect("monitor-added", (_, monitor) => {
+      addBar(monitor)
+    })
+
+    // Remove disconnected monitor
+    app.connect("monitor-removed", (_, monitor) => {
+      removeBar(monitor)
+    })
   },
 })
