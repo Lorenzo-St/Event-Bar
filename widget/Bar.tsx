@@ -2,6 +2,7 @@ import app from "ags/gtk4/app"
 
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createPoll } from "ags/time"
+import { Variable } from "ags"
 import { onCleanup } from "gnim"
 import AstalBattery from "gi://AstalBattery"
 import AstalNetwork from "gi://AstalNetwork"
@@ -9,16 +10,13 @@ import AstalWp from "gi://AstalWp"
 
 import { createBinding } from "ags"
 
-function BatteryIndicator() {
+function BatteryIndicator({ subscriptions }: { subscriptions: any[] }) {
 
 	const batteryDevice = AstalBattery.get_default();
 
 	const batteryPercent = createBinding(batteryDevice, "percentage")
 	const batteryIcon = createBinding(batteryDevice, "battery-icon-name")
-	onCleanup(() => {
-		batteryPercent.unsubscribe();
-		batteryIcon.unsubscribe();
-	});
+	subscriptions.push(batteryPercent, batteryIcon);
 
 	let content;
 	content = <label cssName="text" label={batteryPercent(
@@ -40,11 +38,9 @@ function BatteryIndicator() {
 }
 
 
-function TimeDateCalendar() {
+function TimeDateCalendar({ subscriptions }: { subscriptions: any[] }) {
 	const time = createPoll("", 1000, "date")
-	onCleanup(() => {
-		time.unsubscribe();
-	});
+	subscriptions.push(time);
 
 
 	return <box $type="center" halign={Gtk.Align.CENTER}>
@@ -59,13 +55,11 @@ function TimeDateCalendar() {
 	</box>
 }
 
-function NetworkDropdown() {
+function NetworkDropdown({ subscriptions }: { subscriptions: any[] }) {
 	const network = AstalNetwork.get_default();
 	const wifi = network.get_wifi();
 	const accessPoints = createBinding(wifi, "access-points");
-	onCleanup(() => {
-		accessPoints.unsubscribe();
-	});
+	subscriptions.push(accessPoints);
 
 
 
@@ -96,16 +90,13 @@ function NetworkDropdown() {
 }
 
 
-function NetAudioBluetooth() {
+function NetAudioBluetooth({ subscriptions }: { subscriptions: any[] }) {
 	const network = AstalNetwork.get_default();
 	const primary = createBinding(network, "primary")
 
 	const audio = AstalWp.get_default();
 	const audioSpeaker = createBinding(audio, "default-speaker");
-	onCleanup(() => {
-		primary.unsubscribe();
-		audioSpeaker.unsubscribe();
-	});
+	subscriptions.push(primary, audioSpeaker);
 
 
 	const networkAlign = Gtk.Align.LEFT;
@@ -130,7 +121,7 @@ function NetAudioBluetooth() {
 		<menubutton class="node-background">
 			<image icon-name={connectionIcon} />
 			<popover>
-				<NetworkDropdown />
+				<NetworkDropdown subscriptions={subscriptions} />
 			</popover>
 		</menubutton>
 	</box>
@@ -155,10 +146,14 @@ function NetAudioBluetooth() {
 
 
 export default function Bar(gdkmonitor: Gdk.Monitor) {
+	const subscriptions: any[] = []
 
 	const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
-	return (
+	const windowRef = Variable()
+
+	const bar = (
 		<window
+			ref={windowRef}
 			visible
 			name="bar"
 			class="Bar"
@@ -168,10 +163,20 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 			application={app}
 		>
 			<centerbox cssName="centerbox">
-				<BatteryIndicator />
-				<TimeDateCalendar />
-				<NetAudioBluetooth />
+				<BatteryIndicator subscriptions={subscriptions} />
+				<TimeDateCalendar subscriptions={subscriptions} />
+				<NetAudioBluetooth subscriptions={subscriptions} />
 			</centerbox>
 		</window>
 	)
+
+	// Connect to destroy signal to clean up subscriptions
+	const windowInstance = windowRef.get()
+	if (windowInstance) {
+		windowInstance.connect("destroy", () => {
+			subscriptions.forEach(sub => sub.unsubscribe())
+		})
+	}
+
+	return bar
 }
