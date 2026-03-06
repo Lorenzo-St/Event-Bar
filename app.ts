@@ -6,18 +6,19 @@ import Bar from "./widget/Bar"
 const display = Gdk.Display.get_default()!
 const monitorManager = display.get_monitors()
 
-let bars = new Map<Gdk.Monitor, any>()
+let bars = new Map<Gdk.Monitor, { widget: any, subscriptions: any[] }>()
 
 function addBar(monitor: Gdk.Monitor) {
   if (bars.has(monitor)) return
-  const bar = Bar(monitor)
-  bars.set(monitor, bar)
+  const { widget, subscriptions } = Bar(monitor)
+  bars.set(monitor, { widget, subscriptions })
 }
 
 function removeBar(monitor: Gdk.Monitor) {
-  const bar = bars.get(monitor)
-  if (!bar) return
-  bar.destroy()
+  const entry = bars.get(monitor)
+  if (!entry) return
+  entry.subscriptions.forEach(sub => sub.unsubscribe())
+  entry.widget.destroy()
   bars.delete(monitor)
 }
 

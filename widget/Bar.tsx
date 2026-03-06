@@ -149,15 +149,8 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 
 	const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
 
-	const bar = (
+	const widget = (
 		<window
-			ref={(w) => {
-				if (w) {
-					w.connect("destroy", () => {
-						subscriptions.forEach(sub => sub.unsubscribe())
-					})
-				}
-			}}
 			visible
 			name="bar"
 			class="Bar"
@@ -174,5 +167,5 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 		</window>
 	)
 
-	return bar
+	return { widget, subscriptions }
 }
