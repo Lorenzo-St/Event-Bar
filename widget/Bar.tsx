@@ -2,7 +2,6 @@ import app from "ags/gtk4/app"
 
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createPoll } from "ags/time"
-import { Variable } from "ags"
 import { onCleanup } from "gnim"
 import AstalBattery from "gi://AstalBattery"
 import AstalNetwork from "gi://AstalNetwork"
@@ -149,11 +148,16 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 	const subscriptions: any[] = []
 
 	const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
-	const windowRef = Variable()
 
 	const bar = (
 		<window
-			ref={windowRef}
+			ref={(w) => {
+				if (w) {
+					w.connect("destroy", () => {
+						subscriptions.forEach(sub => sub.unsubscribe())
+					})
+				}
+			}}
 			visible
 			name="bar"
 			class="Bar"
@@ -169,14 +173,6 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 			</centerbox>
 		</window>
 	)
-
-	// Connect to destroy signal to clean up subscriptions
-	const windowInstance = windowRef.get()
-	if (windowInstance) {
-		windowInstance.connect("destroy", () => {
-			subscriptions.forEach(sub => sub.unsubscribe())
-		})
-	}
 
 	return bar
 }
