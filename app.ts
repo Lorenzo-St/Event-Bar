@@ -17,7 +17,6 @@ function addBar(monitor: Gdk.Monitor) {
 function removeBar(monitor: Gdk.Monitor) {
   const entry = bars.get(monitor)
   if (!entry) return
-  entry.subscriptions.forEach(sub => sub.unsubscribe())
   entry.widget.destroy()
   bars.delete(monitor)
 }

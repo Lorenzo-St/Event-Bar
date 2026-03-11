@@ -7,15 +7,19 @@ import AstalBattery from "gi://AstalBattery"
 import AstalNetwork from "gi://AstalNetwork"
 import AstalWp from "gi://AstalWp"
 
-import { createBinding } from "ags"
+import { For, With, createBinding } from "ags"
+import { execAsync } from "ags/process"
 
-function BatteryIndicator({ subscriptions }: { subscriptions: any[] }) {
+function BatteryIndicator() {
 
 	const batteryDevice = AstalBattery.get_default();
 
 	const batteryPercent = createBinding(batteryDevice, "percentage")
 	const batteryIcon = createBinding(batteryDevice, "battery-icon-name")
-	subscriptions.push(batteryPercent, batteryIcon);
+	onCleanup(() => {
+		batteryPercent.unsubscribe();
+		batteryIcon.unsubscribe();
+	});
 
 	let content;
 	content = <label cssName="text" label={batteryPercent(
@@ -37,9 +41,11 @@ function BatteryIndicator({ subscriptions }: { subscriptions: any[] }) {
 }
 
 
-function TimeDateCalendar({ subscriptions }: { subscriptions: any[] }) {
+function TimeDateCalendar() {
 	const time = createPoll("", 1000, "date")
-	subscriptions.push(time);
+	onCleanup(() => {
+		time.unsubscribe();
+	});
 
 
 	return <box $type="center" halign={Gtk.Align.CENTER}>
@@ -54,80 +60,70 @@ function TimeDateCalendar({ subscriptions }: { subscriptions: any[] }) {
 	</box>
 }
 
-function NetworkDropdown({ subscriptions }: { subscriptions: any[] }) {
+
+
+function NetAudioBluetooth() {
 	const network = AstalNetwork.get_default();
-	const wifi = network.get_wifi();
-	const accessPoints = createBinding(wifi, "access-points");
-	subscriptions.push(accessPoints);
+	console.log(network.get_primary());
+	const wifi = createBinding(network, "wifi")
 
-
-
-	wifi.scan();
-	const access_points = accessPoints((p) => p);
-	const buttons = [];
-	const seenSSIDs = new Map();
-
-
-	for (let i = 0; i < access_points().length; ++i) {
-		const access = access_points()[i];
-		if (seenSSIDs.has(access.get_ssid())) continue;
-		buttons.push(
-			<button class="node-background" onClicked={() => access.activate(null, null)} >
-				<box orientation={Gtk.Orientation.HORIZONTAL}>
-					<image icon-name={access.get_icon_name()} />
-					<label label={access.get_ssid()} />
-
-				</box>
-			</button >
-
-		)
-		seenSSIDs.set(access.get_ssid(), true);
-	}
-	return <box orientation={Gtk.Orientation.VERTICAL}>
-		{buttons}
-	</box>
-}
-
-
-function NetAudioBluetooth({ subscriptions }: { subscriptions: any[] }) {
-	const network = AstalNetwork.get_default();
-	const primary = createBinding(network, "primary")
-
-	const audio = AstalWp.get_default();
-	const audioSpeaker = createBinding(audio, "default-speaker");
-	subscriptions.push(primary, audioSpeaker);
+	const { defaultSpeaker: speaker } = AstalWp.get_default()!
 
 
 	const networkAlign = Gtk.Align.LEFT;
 	const audioAlign = Gtk.Align.CENTER;
-	let connectionIcon = primary(
-		(prim) => {
-			switch (prim) {
-				case 1:
-					return "network-wired";
-				case 2:
-					return "network-wireless"
-			}
-		}
-	);
-	let audioIcon = audioSpeaker(
-		(speaker) => {
-			return speaker.get_volume_icon();
-		}
-	);
 
-	let networkContent = <box halign={networkAlign}>
-		<menubutton class="node-background">
-			<image icon-name={connectionIcon} />
-			<popover>
-				<NetworkDropdown subscriptions={subscriptions} />
-			</popover>
-		</menubutton>
-	</box>
+	async function connect(ap: AstalNetwork.AccessPoint) {
+		try {
+			await execAsync(`nmcli d wifi connect ${ap.bssid}`)
+		} catch (error) {
+			// you can implement a popup asking for password here
+			console.error(error)
+		}
+	}
+	const sorted = (arr: Array<AstalNetwork.AccessPoint>) => {
+		return arr.filter((ap) => !!ap.ssid).sort((a, b) => b.strength - a.strength)
+	}
+	let networkContent = <box visible={wifi(Boolean)} halign={networkAlign}>
+		<With value={wifi}>
+			{(wifi) => wifi && (
+				<menubutton class="node-background">
+					<image icon-name={createBinding(wifi, "iconName")} />
+					<popover>
+						(<For each={createBinding(wifi, "accessPoints")(sorted)}>
+							{(ap: AstalNetwork.AccessPoint) => (
+								<button onClicked={() => connect(ap)}>
+									<box spacing={4}>
+										<image iconName={createBinding(ap, "iconName")} />
+										<label label={createBinding(ap, "ssid")} />
+										<image
+											iconName="object-select-symbolic"
+											visible={createBinding(
+												wifi,
+												"activeAccessPoint",
+											)((active) => active === ap)}
+										/>
+									</box>
+								</button>
+							)}
+						</For>)
+					</popover>
+				</menubutton>)}
+		</With>
+	</box >
 
 	let audioContent = <box halign={audioAlign}>
 		<menubutton class="node-background">
-			<image icon-name={audioIcon} />
+			<image icon-name={createBinding(speaker, "volumeIcon")} />
+			<popover>
+				<box>
+					<slider
+						widthRequest={260}
+						onChangeValue={({ value }) => speaker.set_volume(value)}
+						value={createBinding(speaker, "volume")}
+					/>
+				</box>
+			</popover>
 		</menubutton>
 	</box>
 
@@ -142,10 +138,7 @@ function NetAudioBluetooth({ subscriptions }: { subscriptions: any[] }) {
 
 
 
-
-
 export default function Bar(gdkmonitor: Gdk.Monitor) {
-	const subscriptions: any[] = []
 
 	const { TOP, LEFT, RIGHT } = Astal.WindowAnchor
 
@@ -160,12 +153,12 @@ export default function Bar(gdkmonitor: Gdk.Monitor) {
 			application={app}
 		>
 			<centerbox cssName="centerbox">
-				<BatteryIndicator subscriptions={subscriptions} />
-				<TimeDateCalendar subscriptions={subscriptions} />
-				<NetAudioBluetooth subscriptions={subscriptions} />
+				<BatteryIndicator />
+				<TimeDateCalendar />
+				<NetAudioBluetooth />
 			</centerbox>
 		</window>
 	)
 
-	return { widget, subscriptions }
+	return { widget }
 }
